@@ -42,3 +42,18 @@ func init() {
 func Read() string {
 	return string(<-readBuffer)
 }
+
+func Readln() string {
+	b := <-readBuffer
+	for l, e := range b {
+		if e == '\r' || e == '\n' {
+			fmt.Println("len:", l)
+			b = b[:l]
+		}
+	}
+	return string(b)
+}
+
+func ReadBytes() []byte {
+	return <-readBuffer
+}
