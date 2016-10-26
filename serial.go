@@ -1,50 +1,61 @@
 package serial
 
 import (
+	"bufio"
 	"fmt"
 	"os"
-	"time"
 )
 
 //the device of serial, example "/dev/ttyUSB0"
-var Dev string
-var readBuffer chan ([]byte)
-var devFile *os.File
 
-func Printf(format string, a ...interface{}) (n int, err error) {
-	return fmt.Fprintf(devFile, format, a...)
+type serial struct {
+	Dev        string
+	readBuffer chan ([]byte)
+	devFile    *os.File
+	scanner    *bufio.Scanner
+	buffer     []byte
 }
 
-func Println(a ...interface{}) (n int, err error) {
-	return fmt.Fprintln(devFile, a...)
+func (s *serial) Printf(format string, a ...interface{}) (n int, err error) {
+	return fmt.Fprintf(s.devFile, format, a...)
 }
 
-func init() {
-	Dev = "/dev/ttyUSB0"
-	readBuffer = make(chan []byte)
+func (s *serial) Println(a ...interface{}) (n int, err error) {
+	return fmt.Fprintln(s.devFile, a...)
+}
+
+func New(dev string) *serial {
+	var s serial
 	var err error
-	devFile, err = os.OpenFile(Dev, os.O_RDWR, 0)
+	s.Dev = dev
+	s.readBuffer = make(chan []byte)
+	s.devFile, err = os.OpenFile(s.Dev, os.O_RDWR, 0)
 	if err != nil {
 		fmt.Println(err)
+		return nil
 	}
-	go func() {
-		b := make([]byte, 1024)
-		for {
-			n, _ := devFile.Read(b)
-			if n != 0 {
-				readBuffer <- b
-			}
-			time.Sleep(10 * time.Millisecond)
-		}
-	}()
+	s.scanner = bufio.NewScanner(s.devFile)
+	return &s
 }
 
-func Read() string {
-	return string(<-readBuffer)
+func (s *serial) Scan() bool {
+	return s.scanner.Scan()
 }
 
-func Readln() string {
-	b := <-readBuffer
+func (s *serial) Bytes() []byte {
+	return s.scanner.Bytes()
+}
+
+func (s *serial) Text() string {
+	return s.scanner.Text()
+}
+
+func (s *serial) Read() string {
+	return string(<-s.readBuffer)
+}
+
+func (s *serial) Readln() string {
+	b := <-s.readBuffer
 	for l, e := range b {
 		if e == '\r' || e == '\n' {
 			fmt.Println("len:", l)
@@ -54,6 +65,6 @@ func Readln() string {
 	return string(b)
 }
 
-func ReadBytes() []byte {
-	return <-readBuffer
+func (s *serial) ReadBytes() []byte {
+	return <-s.readBuffer
 }
